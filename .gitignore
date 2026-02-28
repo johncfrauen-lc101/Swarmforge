@@ -7,4 +7,4 @@ __pycache__/
 # Local skill test state (optional)
 .opencode-test-data/
 
-.env
+env
