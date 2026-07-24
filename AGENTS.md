@@ -7,17 +7,19 @@
 ## Repo Overview
 - `Makefile` orchestrates the local containers (`build_opencode`, `run_opencode`, `run_ollama`, etc.) and is the preferred entry point for automation.
 - `install.sh` appends an `oc` helper alias that shells out to `make -C <repo> run_opencode`; keep it POSIX-compliant because it is sourced in user shells.
-- `opencode/` is the Docker build context for the OpenCode harness, which provides a constrained execution environment for building and refining systems and tools.
+- `anvil/` is the Docker build context shared by every harness image (OpenCode, Claude Code): Dockerfile, container entrypoint, and the unified-agent translator.
+- `opencode/` holds the OpenCode-native repo config layer (`opencode.json`, plus untracked plugin state); harness-neutral assets live at the top level in `skills/`, `commands/`, and `agents/`.
 - `ollama/` stores persistent Ollama state. Do not add large model blobs to git—only configuration or lightweight defaults belong here.
 
 ## Coding Conventions
 - Default to Bash or POSIX shell for scripts and include `set -euo pipefail` (or equivalent) when modifying shell entrypoints.
 - Prefer `make` variables and targets over ad-hoc scripts so contributors can compose workflows via the existing Makefile.
 - Keep Dockerfiles Debian-based (see `DEBIAN_TAG`) and avoid pinning GPU driver versions inside the image; rely on host NVIDIA tooling instead.
-- When editing skills under `opencode/config/skills/`, ensure YAML frontmatter only contains `name` and `description`, and keep the detailed guidance in the corresponding `SKILL.md` body.
+- When editing skills under `skills/`, ensure YAML frontmatter only contains `name` and `description`, and keep the detailed guidance in the corresponding `SKILL.md` body.
+- Subagent definitions under `agents/` use the unified agent format documented in `README.md` (`## Agents`); the entrypoint rewrites them per harness via `anvil/translate_agents.py`, so never hand-write harness-specific dialects there.
 
 ## Build, Test, and Run
-- Build the OpenCode image with `make build_opencode` after changing anything under `opencode/`.
+- Build the OpenCode image with `make build_opencode` after changing anything under `anvil/`.
 - Launch a development session via `make run_opencode PROFILE=<name> DATA_DIR=<path?>` (defaults are fine for local work). The target automatically mounts project files and skills.
 - Run the skill test harness via `make test MODEL=<provider/model>`.
 - Filter skill tests with `TEST_SKILL=<skill-name>` and adjust timeouts with `TEST_TIMEOUT_S=<seconds>`.
@@ -28,42 +30,3 @@
 - Keep secrets, API keys, and downloaded models out of version control; anything mounted into containers should be reproducible from repo contents.
 - If you add new tooling, document the invocation in `README.md` so contributors understand how it integrates with `make`.
 - Prefer small, surgical edits—do not reformat or restructure unrelated files when touching scripts or skills.
-
-## Issue Tracking
-
-This project uses **bd (beads)** for issue tracking.
-Run `bd prime` for workflow context, or install hooks (`bd hooks install`) for auto-injection.
-
-**Quick reference:**
-- `bd ready` - Find unblocked work
-- `bd create "Title" --type task --priority 2` - Create issue
-- `bd close <id>` - Complete work
-- `bd sync` - Sync with git (run at session end)
-
-For full workflow details: `bd prime`
-
-## Landing the Plane (Session Completion)
-
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
-
-**MANDATORY WORKFLOW:**
-
-1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
-   ```bash
-   git pull --rebase
-   bd sync
-   git push
-   git status  # MUST show "up to date with origin"
-   ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
-
-**CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds

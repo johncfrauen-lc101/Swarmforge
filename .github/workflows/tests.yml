@@ -1,0 +1,54 @@
+name: Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  translate-agents:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run agent translator tests
+        run: python3 scripts/test_translate_agents.py
+      - name: Run tongs launcher core tests
+        run: python3 scripts/test_tongs.py
+      - name: Run anvil launcher tests
+        run: python3 scripts/test_run_anvil.py
+      - name: Check entrypoint syntax
+        run: sh -n anvil/entrypoint.sh
+
+  docker-broker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: tongs/docker-broker/package-lock.json
+      - name: Install broker deps
+        run: npm ci
+        working-directory: tongs/docker-broker
+      - name: Run broker unit tests
+        run: npm test
+        working-directory: tongs/docker-broker
+
+  docker-broker-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: tongs/docker-broker/package-lock.json
+      - name: Install broker deps
+        run: npm ci
+        working-directory: tongs/docker-broker
+      - name: Pre-pull worker image
+        run: docker pull alpine:3.20
+      - name: Run broker end-to-end tests
+        run: npm run test:e2e
+        working-directory: tongs/docker-broker
